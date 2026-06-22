@@ -1,58 +1,27 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Настройка страницы
-st.set_page_config(page_title="OKED Expert System 2.0", page_icon="📊", layout="centered")
+# Настройка
+st.set_page_config(page_title="AI OKED Classifier", layout="centered")
 
-# Настройки в боковой панели
-with st.sidebar:
-    st.header("⚙️ Конфигурация")
-    model_name = st.selectbox("Выбор модели", ["gemini-1.5-flash", "gemini-1.5-pro"])
-    st.markdown("---")
-    st.write("**Автор:** Есимов Р.")
-    st.write("**Организация:** Бюро национальной статистики РК")
+# CSS для темной темы и "космического" стиля
+st.markdown("""
+    <style>
+    .stApp { background-color: #050508; }
+    h1 { color: #00f2ff; text-align: center; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Заголовок
-st.title("📊 OKED Expert System 2.0")
+st.title("AI-CLASSIFIER OKED")
 
-# Таблоиды
-col1, col2, col3 = st.columns(3)
-col1.metric("Статус", "Online")
-col2.metric("Версия", "2.0")
-col3.metric("База", "2026")
-
-st.divider()
-
-# Логика классификации
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel(model_name)
+# ВАЖНО: используем f"models/{model_choice}"
+model_choice = st.sidebar.selectbox("Модель", ["gemini-1.5-flash", "gemini-1.5-pro"])
+model = genai.GenerativeModel(f"models/{model_choice}")
 
-user_query = st.text_area("Введите описание деятельности:", height=100, 
-                         placeholder="Пример: Розничная торговля запчастями для сельхозтехники...")
+user_query = st.text_area("ОПИШИТЕ ВАШУ ДЕЯТЕЛЬНОСТЬ:")
 
-if st.button("Классифицировать"):
+if st.button("КЛАССИФИЦИРОВАТЬ"):
     if user_query:
-        with st.spinner('Идет анализ по классификатору...'):
-            try:
-                # Четкий промт для классификатора
-                prompt = f"""
-                Ты — профессиональный эксперт Бюро национальной статистики РК.
-                Твоя задача: на основе описания деятельности подобрать наиболее точный код ОКЭД.
-                
-                Формат ответа:
-                1. Код ОКЭД (номер и название).
-                2. Обоснование выбора (кратко).
-                3. Два уточняющих вопроса для проверки полноты данных.
-                
-                Описание деятельности: {user_query}
-                """
-                response = model.generate_content(prompt)
-                st.subheader("Результат классификации")
-                st.success(response.text)
-            except Exception as e:
-                st.error(f"Ошибка системы: {e}")
-    else:
-        st.warning("Введите описание для начала работы.")
-
-st.markdown("---")
-st.caption("Разработано: Есимов Р. | Бюро национальной статистики РК © 2026")
+        response = model.generate_content(f"Ты эксперт ОКЭД. Определи код для: {user_query}")
+        st.success(response.text)
