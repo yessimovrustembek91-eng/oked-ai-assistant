@@ -1,58 +1,58 @@
 import streamlit as st
-import pandas as pd
-from openai import OpenAI
-from docx import Document
-import os
+import google.generativeai as genai
 
-# Подключение к Gemini через API
-client = OpenAI(
-    api_key=st.secrets["GEMINI_API_KEY"], 
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-)
+# Настройка страницы
+st.set_page_config(page_title="OKED Expert System 2.0", page_icon="📊", layout="centered")
 
-st.set_page_config(page_title="OKED Expert 2.0", layout="wide")
+# Настройки в боковой панели
+with st.sidebar:
+    st.header("⚙️ Конфигурация")
+    model_name = st.selectbox("Выбор модели", ["gemini-1.5-flash", "gemini-1.5-pro"])
+    st.markdown("---")
+    st.write("**Автор:** Есимов Р.")
+    st.write("**Организация:** Бюро национальной статистики РК")
 
-@st.cache_data
-def load_data():
-    return pd.read_excel("ОКЭД.XLSX", dtype=str)
+# Заголовок
+st.title("📊 OKED Expert System 2.0")
 
-def get_context():
-    text = ""
-    # Читаем все ваши документы для контекста
-    for file in ["Национальный классификатор oked-5_руссайт.docx", "БАЗА ЗНАНИЙ 2026.docx", "Методика_ru.docx"]:
-        if os.path.exists(file):
-            doc = Document(file)
-            text += "\n".join([p.text for p in doc.paragraphs])
-    return text[:8000] 
+# Таблоиды
+col1, col2, col3 = st.columns(3)
+col1.metric("Статус", "Online")
+col2.metric("Версия", "2.0")
+col3.metric("База", "2026")
 
-df = load_data()
+st.divider()
 
-st.title("🟢 OKED Expert System 2.0")
+# Логика классификации
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+model = genai.GenerativeModel(model_name)
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+user_query = st.text_area("Введите описание деятельности:", height=100, 
+                         placeholder="Пример: Розничная торговля запчастями для сельхозтехники...")
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+if st.button("Классифицировать"):
+    if user_query:
+        with st.spinner('Идет анализ по классификатору...'):
+            try:
+                # Четкий промт для классификатора
+                prompt = f"""
+                Ты — профессиональный эксперт Бюро национальной статистики РК.
+                Твоя задача: на основе описания деятельности подобрать наиболее точный код ОКЭД.
+                
+                Формат ответа:
+                1. Код ОКЭД (номер и название).
+                2. Обоснование выбора (кратко).
+                3. Два уточняющих вопроса для проверки полноты данных.
+                
+                Описание деятельности: {user_query}
+                """
+                response = model.generate_content(prompt)
+                st.subheader("Результат классификации")
+                st.success(response.text)
+            except Exception as e:
+                st.error(f"Ошибка системы: {e}")
+    else:
+        st.warning("Введите описание для начала работы.")
 
-if prompt := st.chat_input("Введите вид деятельности..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        matches = df[df.apply(lambda row: prompt.lower() in str(row).lower(), axis=1)].head(5)
-        context = get_context()
-        
-        full_prompt = f"Контекст методологии: {context}\n\nНайденные коды: {matches.to_string()}\n\nЗапрос: {prompt}"
-        
-        response = client.chat.completions.create(
-            model="gemini-1.5-flash",
-            messages=[{"role": "system", "content": "Ты эксперт ОКЭД РК. Отвечай кратко, обоснованно, в конце задавай 2 уточняющих вопроса."},
-                      {"role": "user", "content": full_prompt}]
-        )
-        
-        reply = response.choices[0].message.content
-        st.markdown(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+st.markdown("---")
+st.caption("Разработано: Есимов Р. | Бюро национальной статистики РК © 2026")
